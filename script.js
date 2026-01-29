@@ -1671,186 +1671,147 @@ function confirmBalanceUpdate() {
     }
 }
 
-// ===== PDF EXPORT FUNCTIONS =====
+// ===== UPDATED PDF FUNCTIONS =====
 
-// Generate PDF
+// Check if jsPDF is available
+function isJSPDFAvailable() {
+    return typeof window.jspdf !== 'undefined';
+}
+
+// Generate PDF - Updated with fallback
 function generatePDF({ title, content, filename }) {
     try {
-        const { jsPDF } = window.jspdf;
-        if (!jsPDF) {
-            showToast('PDF library not loaded', 'error');
-            return;
+        // Try using jsPDF if available
+        if (isJSPDFAvailable()) {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+            
+            // Add title
+            pdf.setFontSize(20);
+            pdf.text(title, 20, 20);
+            
+            // Add generation date
+            pdf.setFontSize(12);
+            pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 30);
+            
+            // Add content
+            pdf.setFontSize(10);
+            const lines = pdf.splitTextToSize(content, 170);
+            pdf.text(lines, 20, 40);
+            
+            // Add footer
+            pdf.setFontSize(8);
+            pdf.text(`FX Tae Trading Dashboard - ${filename}`, 20, pdf.internal.pageSize.height - 10);
+            
+            // Save PDF
+            pdf.save(filename);
+            showToast('PDF downloaded successfully!', 'success');
+        } else {
+            // Fallback: Create downloadable text file
+            downloadAsTextFile(content, filename);
         }
-        
-        const pdf = new jsPDF();
-        
-        // Add title
-        pdf.setFontSize(20);
-        pdf.text(title, 20, 20);
-        
-        // Add generation date
-        pdf.setFontSize(12);
-        pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 30);
-        
-        // Add content
-        pdf.setFontSize(10);
-        const lines = pdf.splitTextToSize(content, 170);
-        pdf.text(lines, 20, 40);
-        
-        // Save PDF
-        pdf.save(filename);
-        showToast('PDF downloaded successfully!', 'success');
     } catch (error) {
         console.error('Error generating PDF:', error);
-        showToast('Error generating PDF', 'error');
+        // Fallback to text file
+        downloadAsTextFile(content, filename);
     }
 }
 
-// Download today stats as PDF
-function downloadTodayStats() {
-    const today = new Date().toISOString().split('T')[0];
-    const todayTrades = trades.filter(t => t.date === today);
-    const todayPnl = todayTrades.reduce((sum, t) => sum + t.pnl, 0);
-    
-    const content = `
-        Date: ${new Date().toLocaleDateString()}
-        Account Balance: ${formatCurrency(accountBalance)}
-        Starting Balance: ${formatCurrency(startingBalance)}
-        Today's P&L: ${formatCurrencyWithSign(todayPnl)}
-        Today's Trades: ${todayTrades.length}/4
+// Fallback function to download as text file
+function downloadAsTextFile(content, filename) {
+    try {
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename.replace('.pdf', '.txt');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
         
-        TRADES TODAY:
-        ${todayTrades.map(t => `
-        - Trade ${t.tradeNumber} (${t.time}): ${t.pair} | ${t.strategy} | P&L: ${formatCurrencyWithSign(t.pnl)} | Notes: ${t.notes}
-        `).join('')}
-    `;
+        showToast('File downloaded as text (PDF library not loaded)', 'info');
+    } catch (error) {
+        console.error('Error downloading text file:', error);
+        showToast('Error downloading file. Please install PDF library.', 'error');
+    }
+}
+
+// Download chart as PDF - Updated
+function downloadChartAsPDF(canvasId, chartName) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        showToast('Chart not found', 'error');
+        return;
+    }
+    
+    try {
+        if (isJSPDFAvailable()) {
+            const { jsPDF } = window.jspdf;
+            const image = canvas.toDataURL('image/png', 1.0);
+            const pdf = new jsPDF('landscape');
+            
+            pdf.setFontSize(20);
+            pdf.text(chartName, 20, 20);
+            pdf.setFontSize(12);
+            pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 30);
+            
+            const imgWidth = 250;
+            const imgHeight = (canvas.height * imgWidth) / canvas.width;
+            
+            pdf.addImage(image, 'PNG', 20, 40, imgWidth, imgHeight);
+            
+            // Add footer
+            pdf.setFontSize(8);
+            pdf.text(`FX Tae Trading Dashboard - ${chartName}`, 20, pdf.internal.pageSize.height - 10);
+            
+            pdf.save(`${chartName.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`);
+            
+            showToast(`${chartName} downloaded as PDF`, 'success');
+        } else {
+            // Fallback: Download canvas as image
+            downloadCanvasAsImage(canvas, chartName);
+        }
+    } catch (error) {
+        console.error('Error downloading chart as PDF:', error);
+        downloadCanvasAsImage(canvas, chartName);
+    }
+}
+
+// Fallback function to download canvas as image
+function downloadCanvasAsImage(canvas, chartName) {
+    try {
+        const image = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = image;
+        a.download = `${chartName.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        showToast(`${chartName} downloaded as image (PDF library not loaded)`, 'info');
+    } catch (error) {
+        console.error('Error downloading chart as image:', error);
+        showToast('Error downloading chart', 'error');
+    }
+}
+
+// ===== UPDATED DASHBOARD EXPORT FUNCTIONS =====
+
+// Export dashboard - Updated to generate proper content
+function exportDashboardPDF() {
+    const content = generateDashboardReportHTML();
     
     generatePDF({
-        title: `Today's Trading Stats - ${today}`,
+        title: 'Professional Trading Dashboard Report',
         content: content,
-        filename: `today-stats-${today}.pdf`
+        filename: `dashboard-report-${new Date().toISOString().split('T')[0]}.pdf`
     });
 }
 
-// Download weekly stats as PDF
-function downloadWeeklyStats() {
-    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-    const weeklyTrades = trades.filter(t => t.date >= weekAgo);
-    const weeklyPnl = weeklyTrades.reduce((sum, t) => sum + t.pnl, 0);
-    
-    const content = `
-        Weekly Report (Last 7 Days)
-        Period: ${weekAgo} to ${new Date().toISOString().split('T')[0]}
-        
-        Account Balance: ${formatCurrency(accountBalance)}
-        Starting Balance: ${formatCurrency(startingBalance)}
-        Weekly P&L: ${formatCurrencyWithSign(weeklyPnl)}
-        Total Trades: ${weeklyTrades.length}
-        
-        WEEKLY TRADES:
-        ${weeklyTrades.map(t => `
-        - ${t.date} ${t.time}: Trade ${t.tradeNumber} | ${t.pair} | ${t.strategy} | P&L: ${formatCurrencyWithSign(t.pnl)}
-        `).join('')}
-    `;
-    
-    generatePDF({
-        title: 'Weekly Trading Performance',
-        content: content,
-        filename: `weekly-stats-${new Date().toISOString().split('T')[0]}.pdf`
-    });
-}
-
-// Download monthly stats as PDF
-function downloadMonthlyStats() {
-    const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
-    const monthlyTrades = trades.filter(t => t.date >= monthAgo);
-    const monthlyPnl = monthlyTrades.reduce((sum, t) => sum + t.pnl, 0);
-    
-    const content = `
-        Monthly Report (Last 30 Days)
-        Period: ${monthAgo} to ${new Date().toISOString().split('T')[0]}
-        
-        Account Balance: ${formatCurrency(accountBalance)}
-        Starting Balance: ${formatCurrency(startingBalance)}
-        Monthly P&L: ${formatCurrencyWithSign(monthlyPnl)}
-        Total Trades: ${monthlyTrades.length}
-        Growth: ${formatCurrency(accountBalance - startingBalance)}
-        Growth %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
-        
-        MONTHLY TRADES:
-        ${monthlyTrades.slice(0, 20).map(t => `
-        - ${t.date} ${t.time}: Trade ${t.tradeNumber} | ${t.pair} | ${t.strategy} | P&L: ${formatCurrencyWithSign(t.pnl)}
-        `).join('')}
-        
-        ${monthlyTrades.length > 20 ? `... and ${monthlyTrades.length - 20} more trades` : ''}
-    `;
-    
-    generatePDF({
-        title: 'Monthly Trading Performance',
-        content: content,
-        filename: `monthly-stats-${new Date().toISOString().split('T')[0]}.pdf`
-    });
-}
-
-// Download trade as PDF
-function downloadTradePDF(trade) {
-    const content = `
-        TRADE DETAILS:
-        Date: ${formatDate(trade.date)}
-        Time: ${trade.time}
-        Trade Number: ${trade.tradeNumber}
-        Currency Pair: ${trade.pair}
-        Strategy: ${trade.strategy}
-        P&L: ${formatCurrencyWithSign(trade.pnl)}
-        Notes: ${trade.notes}
-        
-        ACCOUNT INFO:
-        Current Balance: ${formatCurrency(accountBalance)}
-        Starting Balance: ${formatCurrency(startingBalance)}
-        Total Growth: ${formatCurrency(accountBalance - startingBalance)}
-        Growth %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
-        
-        PERFORMANCE SUMMARY:
-        Total Trades: ${trades.length}
-        Winning Trades: ${trades.filter(t => t.pnl > 0).length}
-        Losing Trades: ${trades.filter(t => t.pnl < 0).length}
-        Win Rate: ${(trades.filter(t => t.pnl > 0).length / trades.length * 100).toFixed(1)}%
-    `;
-    
-    generatePDF({
-        title: `Trade Details - ${formatDate(trade.date)}`,
-        content: content,
-        filename: `trade-${trade.id}-${trade.date}.pdf`
-    });
-}
-
-// Export journal as PDF
+// Export journal PDF - Updated
 function exportJournalPDF() {
-    const content = `
-        TRADING JOURNAL - COMPLETE HISTORY
-        Generated: ${new Date().toLocaleDateString()}
-        
-        ACCOUNT SUMMARY:
-        Current Balance: ${formatCurrency(accountBalance)}
-        Starting Balance: ${formatCurrency(startingBalance)}
-        Total Growth: ${formatCurrency(accountBalance - startingBalance)}
-        Growth %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
-        Total Trades: ${trades.length}
-        
-        PERFORMANCE METRICS:
-        Winning Trades: ${trades.filter(t => t.pnl > 0).length}
-        Losing Trades: ${trades.filter(t => t.pnl < 0).length}
-        Break Even Trades: ${trades.filter(t => t.pnl === 0).length}
-        Win Rate: ${(trades.filter(t => t.pnl > 0).length / trades.length * 100).toFixed(1)}%
-        Total Profit: ${formatCurrency(trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0))}
-        Total Loss: ${formatCurrency(Math.abs(trades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0)))}
-        Net Profit: ${formatCurrency(trades.reduce((sum, t) => sum + t.pnl, 0))}
-        
-        ALL TRADES:
-        ${trades.map(t => `
-        ${t.date} ${t.time} | Trade ${t.tradeNumber} | ${t.pair} | ${t.strategy} | P&L: ${formatCurrencyWithSign(t.pnl)} | Notes: ${t.notes}
-        `).join('')}
-    `;
+    const content = generateJournalContent();
     
     generatePDF({
         title: 'Trading Journal - Complete History',
@@ -1859,44 +1820,9 @@ function exportJournalPDF() {
     });
 }
 
-// Export analytics as PDF
+// Export analytics PDF - Updated
 function exportAnalyticsPDF() {
-    const winningTrades = trades.filter(t => t.pnl > 0).length;
-    const losingTrades = trades.filter(t => t.pnl < 0).length;
-    const totalProfit = trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
-    const totalLoss = Math.abs(trades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0));
-    const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : totalProfit > 0 ? 999 : 0;
-    
-    const content = `
-        TRADING ANALYTICS REPORT
-        Generated: ${new Date().toLocaleDateString()}
-        
-        PERFORMANCE OVERVIEW:
-        Total Trades: ${trades.length}
-        Winning Trades: ${winningTrades}
-        Losing Trades: ${losingTrades}
-        Win Rate: ${(winningTrades / trades.length * 100).toFixed(1)}%
-        Profit Factor: ${profitFactor.toFixed(2)}
-        
-        PROFIT ANALYSIS:
-        Total Profit: ${formatCurrency(totalProfit)}
-        Total Loss: ${formatCurrency(totalLoss)}
-        Net Profit: ${formatCurrency(totalProfit - totalLoss)}
-        Average Win: ${formatCurrency(winningTrades > 0 ? totalProfit / winningTrades : 0)}
-        Average Loss: ${formatCurrency(losingTrades > 0 ? totalLoss / losingTrades : 0)}
-        
-        ACCOUNT GROWTH:
-        Starting Balance: ${formatCurrency(startingBalance)}
-        Current Balance: ${formatCurrency(accountBalance)}
-        Total Growth: ${formatCurrency(accountBalance - startingBalance)}
-        Growth %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
-        
-        RISK METRICS:
-        Max Consecutive Wins: ${calculateMaxConsecutiveWins()}
-        Max Consecutive Losses: ${calculateMaxConsecutiveLosses()}
-        Largest Win: ${formatCurrency(Math.max(...trades.filter(t => t.pnl > 0).map(t => t.pnl), 0))}
-        Largest Loss: ${formatCurrency(Math.min(...trades.filter(t => t.pnl < 0).map(t => t.pnl), 0))}
-    `;
+    const content = generateAnalyticsContent();
     
     generatePDF({
         title: 'Trading Analytics Report',
@@ -1905,42 +1831,113 @@ function exportAnalyticsPDF() {
     });
 }
 
-// Export notebook as PDF
-function exportNotebookPDF() {
-    const content = `
-        TRADING DREAMS NOTEBOOK
-        Generated: ${new Date().toLocaleDateString()}
-        
-        Total Dreams: ${dreams.length}
-        
-        DREAMS:
-        ${dreams.map(d => `
-        ${formatDate(d.date)}:
-        ${d.content}
-        
-        `).join('')}
-    `;
+// Export all data PDF - Updated
+function exportAllDataPDF() {
+    const content = generateAllDataContent();
     
     generatePDF({
-        title: 'Trading Dreams Notebook',
+        title: 'Complete Trading Data Export',
         content: content,
-        filename: `dreams-notebook-${new Date().toISOString().split('T')[0]}.pdf`
+        filename: `complete-trading-data-${new Date().toISOString().split('T')[0]}.pdf`
     });
 }
 
-// Export all data as PDF
-function exportAllDataPDF() {
-    const content = `
+// Helper function to generate journal content
+function generateJournalContent() {
+    return `
+        TRADING JOURNAL - COMPLETE HISTORY
+        Generated: ${new Date().toLocaleDateString()}
+        ================================================
+        
+        ACCOUNT SUMMARY:
+        Current Balance: ${formatCurrency(accountBalance)}
+        Starting Balance: ${formatCurrency(startingBalance)}
+        Total Growth: ${formatCurrency(accountBalance - startingBalance)}
+        Growth %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
+        Total Trades: ${trades.length}
+        
+        ================================================
+        ALL TRADES (${trades.length} total):
+        ${trades.map((t, index) => `
+        ${index + 1}. ${t.date} ${t.time} 
+           Trade #${t.tradeNumber} | ${t.pair} | ${t.strategy}
+           P&L: ${formatCurrencyWithSign(t.pnl)}
+           Notes: ${t.notes || 'No notes'}
+        `).join('\n')}
+        ================================================
+        
+        Generated by FX Tae Trading Dashboard
+    `;
+}
+
+// Helper function to generate analytics content
+function generateAnalyticsContent() {
+    const winningTrades = trades.filter(t => t.pnl > 0).length;
+    const losingTrades = trades.filter(t => t.pnl < 0).length;
+    const totalProfit = trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
+    const totalLoss = Math.abs(trades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0));
+    const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : totalProfit > 0 ? 999 : 0;
+    
+    return `
+        TRADING ANALYTICS REPORT
+        Generated: ${new Date().toLocaleDateString()}
+        ================================================
+        
+        PERFORMANCE OVERVIEW:
+        ================================================
+        Total Trades: ${trades.length}
+        Winning Trades: ${winningTrades}
+        Losing Trades: ${losingTrades}
+        Win Rate: ${(winningTrades / trades.length * 100).toFixed(1)}%
+        Profit Factor: ${profitFactor.toFixed(2)}
+        
+        ================================================
+        PROFIT ANALYSIS:
+        ================================================
+        Total Profit: ${formatCurrency(totalProfit)}
+        Total Loss: ${formatCurrency(totalLoss)}
+        Net Profit: ${formatCurrency(totalProfit - totalLoss)}
+        Average Win: ${formatCurrency(winningTrades > 0 ? totalProfit / winningTrades : 0)}
+        Average Loss: ${formatCurrency(losingTrades > 0 ? totalLoss / losingTrades : 0)}
+        
+        ================================================
+        ACCOUNT GROWTH:
+        ================================================
+        Starting Balance: ${formatCurrency(startingBalance)}
+        Current Balance: ${formatCurrency(accountBalance)}
+        Total Growth: ${formatCurrency(accountBalance - startingBalance)}
+        Growth %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
+        
+        ================================================
+        RISK METRICS:
+        ================================================
+        Max Consecutive Wins: ${calculateMaxConsecutiveWins()}
+        Max Consecutive Losses: ${calculateMaxConsecutiveLosses()}
+        Largest Win: ${formatCurrency(Math.max(...trades.filter(t => t.pnl > 0).map(t => t.pnl), 0))}
+        Largest Loss: ${formatCurrency(Math.min(...trades.filter(t => t.pnl < 0).map(t => t.pnl), 0))}
+        
+        ================================================
+        Generated by FX Tae Trading Dashboard
+    `;
+}
+
+// Helper function to generate all data content
+function generateAllDataContent() {
+    return `
         COMPLETE TRADING DATA EXPORT
         Generated: ${new Date().toLocaleDateString()}
+        ================================================
         
         ACCOUNT INFORMATION:
+        ================================================
         Current Balance: ${formatCurrency(accountBalance)}
         Starting Balance: ${formatCurrency(startingBalance)}
         Total Growth: ${formatCurrency(accountBalance - startingBalance)}
         Growth %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
         
+        ================================================
         PERFORMANCE SUMMARY:
+        ================================================
         Total Trades: ${trades.length}
         Winning Trades: ${trades.filter(t => t.pnl > 0).length}
         Losing Trades: ${trades.filter(t => t.pnl < 0).length}
@@ -1950,56 +1947,40 @@ function exportAllDataPDF() {
         Net Profit: ${formatCurrency(trades.reduce((sum, t) => sum + t.pnl, 0))}
         Profit Factor: ${(trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0) / Math.abs(trades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0))).toFixed(2)}
         
-        ALL TRADES:
+        ================================================
+        ALL TRADES (${trades.length} trades):
+        ================================================
         ${trades.map(t => `
-        ${t.date} ${t.time} | Trade ${t.tradeNumber} | ${t.pair} | ${t.strategy} | P&L: ${formatCurrencyWithSign(t.pnl)} | Notes: ${t.notes}
-        `).join('')}
+        ${t.date} ${t.time} | Trade ${t.tradeNumber} | ${t.pair} | ${t.strategy} 
+        P&L: ${formatCurrencyWithSign(t.pnl)} | Notes: ${t.notes || 'No notes'}
+        `).join('\n')}
         
-        DREAMS:
+        ================================================
+        DREAMS (${dreams.length} dreams):
+        ================================================
         ${dreams.map(d => `
         ${formatDate(d.date)}: ${d.content}
-        `).join('')}
+        `).join('\n')}
+        
+        ================================================
+        Generated by FX Tae Trading Dashboard
     `;
-    
-    generatePDF({
-        title: 'Complete Trading Data Export',
-        content: content,
-        filename: `complete-trading-data-${new Date().toISOString().split('T')[0]}.pdf`
-    });
 }
 
-// Download chart as PDF
-function downloadChartAsPDF(canvasId, chartName) {
-    const canvas = document.getElementById(canvasId);
-    if (!canvas) return;
-    
-    try {
-        const { jsPDF } = window.jspdf;
-        if (!jsPDF) {
-            showToast('PDF library not loaded', 'error');
-            return;
-        }
-        
-        const image = canvas.toDataURL('image/png', 1.0);
-        const pdf = new jsPDF('landscape');
-        
-        pdf.setFontSize(20);
-        pdf.text(chartName, 20, 20);
-        pdf.setFontSize(12);
-        pdf.text(`Generated: ${new Date().toLocaleDateString()}`, 20, 30);
-        
-        const imgWidth = 250;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        
-        pdf.addImage(image, 'PNG', 20, 40, imgWidth, imgHeight);
-        pdf.save(`${chartName.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`);
-        
-        showToast(`${chartName} downloaded as PDF`, 'success');
-    } catch (error) {
-        console.error('Error downloading chart as PDF:', error);
-        showToast('Error downloading chart', 'error');
-    }
+// ===== UPDATE EVENT LISTENERS =====
+
+// In your setupEventListeners function, update the export dashboard button:
+const exportDashboardBtn = document.getElementById('exportDashboard');
+if (exportDashboardBtn) {
+    exportDashboardBtn.addEventListener('click', exportDashboardPDF);
 }
+
+// ===== GLOBAL EXPORTS UPDATE =====
+// Update these lines at the bottom of your script:
+window.exportDashboardPDF = exportDashboardPDF;
+window.exportJournalPDF = exportJournalPDF;
+window.exportAnalyticsPDF = exportAnalyticsPDF;
+window.exportAllDataPDF = exportAllDataPDF;
 
 // Calculate max consecutive wins
 function calculateMaxConsecutiveWins() {
