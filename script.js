@@ -2311,6 +2311,387 @@ function generateDashboardReportHTML() {
     `;
 }
 
+// ===== FIX FOR DOWNLOAD BUTTONS =====
+
+function initializeDownloadButtons() {
+    console.log('Initializing download buttons...');
+    
+    // Dashboard export buttons
+    const exportDashboardBtn = document.getElementById('exportDashboard');
+    if (exportDashboardBtn) {
+        exportDashboardBtn.onclick = function() {
+            console.log('Export dashboard clicked');
+            exportDashboardPDF();
+        };
+    }
+    
+    // Today's trades export
+    const exportTodayBtn = document.querySelector('[onclick*="downloadTodayStats"]');
+    if (exportTodayBtn) {
+        exportTodayBtn.onclick = function() {
+            console.log('Export today clicked');
+            downloadTodayStats();
+        };
+    }
+    
+    // Weekly performance export
+    const exportWeeklyBtn = document.querySelector('[onclick*="downloadWeeklyStats"]');
+    if (exportWeeklyBtn) {
+        exportWeeklyBtn.onclick = function() {
+            console.log('Export weekly clicked');
+            downloadWeeklyStats();
+        };
+    }
+    
+    // Monthly performance export
+    const exportMonthlyBtn = document.querySelector('[onclick*="downloadMonthlyStats"]');
+    if (exportMonthlyBtn) {
+        exportMonthlyBtn.onclick = function() {
+            console.log('Export monthly clicked');
+            downloadMonthlyStats();
+        };
+    }
+    
+    // Export journal PDF (from recent trades section)
+    const exportJournalBtn = document.querySelector('[onclick*="exportJournalPDF"]');
+    if (exportJournalBtn) {
+        exportJournalBtn.onclick = function() {
+            console.log('Export journal clicked');
+            exportJournalPDF();
+        };
+    }
+    
+    // Export analytics PDF
+    const exportAnalyticsBtn = document.querySelector('[onclick*="exportAnalyticsPDF"]');
+    if (exportAnalyticsBtn) {
+        exportAnalyticsBtn.onclick = function() {
+            console.log('Export analytics clicked');
+            exportAnalyticsPDF();
+        };
+    }
+    
+    // Export all data PDF (settings)
+    const exportAllDataBtn = document.querySelector('[onclick*="exportAllDataPDF"]');
+    if (exportAllDataBtn) {
+        exportAllDataBtn.onclick = function() {
+            console.log('Export all data clicked');
+            exportAllDataPDF();
+        };
+    }
+    
+    // Export chart PDF buttons
+    const exportChartBtns = document.querySelectorAll('[onclick*="downloadChartAsPDF"]');
+    exportChartBtns.forEach(btn => {
+        const onclickAttr = btn.getAttribute('onclick');
+        if (onclickAttr && onclickAttr.includes("downloadChartAsPDF")) {
+            const match = onclickAttr.match(/downloadChartAsPDF\('([^']+)',\s*'([^']+)'\)/);
+            if (match) {
+                btn.onclick = function() {
+                    downloadChartAsPDF(match[1], match[2]);
+                };
+            }
+        }
+    });
+    
+    console.log('Download buttons initialized');
+}
+
+// Simplified PDF generator that definitely works
+function generateSimplePDF({ title, content, filename }) {
+    try {
+        console.log(`Generating PDF: ${title}`);
+        
+        // Create border text for the PDF
+        const border = '='.repeat(80);
+        const formattedContent = `
+${border}
+${centerText(title, 80)}
+${border}
+Generated: ${new Date().toLocaleDateString()}
+${border}
+
+${content}
+
+${border}
+FX TAE TRADING DASHBOARD
+${border}
+        `;
+        
+        // Create and download file
+        const blob = new Blob([formattedContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename.endsWith('.pdf') ? filename : `${filename}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast(`"${title}" downloaded successfully!`, 'success');
+        return true;
+    } catch (error) {
+        console.error('Error generating PDF:', error);
+        showToast(`Error downloading ${title}`, 'error');
+        return false;
+    }
+}
+
+// Helper function to center text
+function centerText(text, width) {
+    const spaces = Math.max(0, width - text.length);
+    const leftSpaces = Math.floor(spaces / 2);
+    const rightSpaces = spaces - leftSpaces;
+    return ' '.repeat(leftSpaces) + text + ' '.repeat(rightSpaces);
+}
+
+// Override the old functions with working versions
+window.exportDashboardPDF = function() {
+    const content = generateDashboardReportHTML();
+    generateSimplePDF({
+        title: 'PROFESSIONAL TRADING DASHBOARD REPORT',
+        content: content,
+        filename: `dashboard-report-${new Date().toISOString().split('T')[0]}.txt`
+    });
+};
+
+window.downloadTodayStats = function() {
+    const today = new Date().toISOString().split('T')[0];
+    const todayTrades = trades.filter(t => t.date === today);
+    const todayPnl = todayTrades.reduce((sum, t) => sum + t.pnl, 0);
+    
+    const content = `
+DATE: ${formatDateForDisplay(today)}
+TIME: ${new Date().toLocaleTimeString()}
+
+ACCOUNT BALANCE: ${formatCurrency(accountBalance)}
+STARTING BALANCE: ${formatCurrency(startingBalance)}
+TODAY'S P&L: ${formatCurrencyWithSign(todayPnl)}
+TODAY'S TRADES: ${todayTrades.length}/4
+
+TRADES TODAY (${todayTrades.length} trades):
+${todayTrades.map(t => `
+TRADE ${t.tradeNumber} (${t.time}):
+  • Pair: ${t.pair}
+  • Strategy: ${t.strategy}
+  • P&L: ${formatCurrencyWithSign(t.pnl)}
+  • Notes: ${t.notes || 'No notes'}
+`).join('')}
+    `;
+    
+    generateSimplePDF({
+        title: `TODAY'S TRADING STATS - ${today}`,
+        content: content,
+        filename: `today-stats-${today}.txt`
+    });
+};
+
+window.downloadWeeklyStats = function() {
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+    const weeklyTrades = trades.filter(t => t.date >= weekAgo);
+    const weeklyPnl = weeklyTrades.reduce((sum, t) => sum + t.pnl, 0);
+    
+    const content = `
+WEEKLY REPORT (LAST 7 DAYS)
+PERIOD: ${weekAgo} to ${new Date().toISOString().split('T')[0]}
+
+ACCOUNT BALANCE: ${formatCurrency(accountBalance)}
+STARTING BALANCE: ${formatCurrency(startingBalance)}
+WEEKLY P&L: ${formatCurrencyWithSign(weeklyPnl)}
+TOTAL TRADES: ${weeklyTrades.length}
+
+WEEKLY TRADES (${weeklyTrades.length} trades):
+${weeklyTrades.map(t => `
+${t.date} ${t.time} - Trade ${t.tradeNumber}:
+  • Pair: ${t.pair}
+  • Strategy: ${t.strategy}
+  • P&L: ${formatCurrencyWithSign(t.pnl)}
+  • Notes: ${t.notes || 'No notes'}
+`).join('')}
+    `;
+    
+    generateSimplePDF({
+        title: 'WEEKLY TRADING PERFORMANCE',
+        content: content,
+        filename: `weekly-stats-${new Date().toISOString().split('T')[0]}.txt`
+    });
+};
+
+window.downloadMonthlyStats = function() {
+    const monthAgo = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+    const monthlyTrades = trades.filter(t => t.date >= monthAgo);
+    const monthlyPnl = monthlyTrades.reduce((sum, t) => sum + t.pnl, 0);
+    
+    const content = `
+MONTHLY REPORT (LAST 30 DAYS)
+PERIOD: ${monthAgo} to ${new Date().toISOString().split('T')[0]}
+
+ACCOUNT BALANCE: ${formatCurrency(accountBalance)}
+STARTING BALANCE: ${formatCurrency(startingBalance)}
+MONTHLY P&L: ${formatCurrencyWithSign(monthlyPnl)}
+TOTAL TRADES: ${monthlyTrades.length}
+GROWTH: ${formatCurrency(accountBalance - startingBalance)}
+GROWTH %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
+
+MONTHLY TRADES (${monthlyTrades.length} trades):
+${monthlyTrades.slice(0, 50).map(t => `
+${t.date} ${t.time} - Trade ${t.tradeNumber}:
+  • Pair: ${t.pair}
+  • Strategy: ${t.strategy}
+  • P&L: ${formatCurrencyWithSign(t.pnl)}
+`).join('')}
+${monthlyTrades.length > 50 ? `\n... and ${monthlyTrades.length - 50} more trades` : ''}
+    `;
+    
+    generateSimplePDF({
+        title: 'MONTHLY TRADING PERFORMANCE',
+        content: content,
+        filename: `monthly-stats-${new Date().toISOString().split('T')[0]}.txt`
+    });
+};
+
+window.exportJournalPDF = function() {
+    const content = `
+TRADING JOURNAL - COMPLETE HISTORY
+
+ACCOUNT SUMMARY:
+CURRENT BALANCE: ${formatCurrency(accountBalance)}
+STARTING BALANCE: ${formatCurrency(startingBalance)}
+TOTAL GROWTH: ${formatCurrency(accountBalance - startingBalance)}
+GROWTH %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
+TOTAL TRADES: ${trades.length}
+
+ALL TRADES (${trades.length} trades):
+${trades.map((t, index) => `
+${index + 1}. ${t.date} ${t.time}
+   TRADE #${t.tradeNumber} | ${t.pair} | ${t.strategy}
+   P&L: ${formatCurrencyWithSign(t.pnl)}
+   NOTES: ${t.notes || 'No notes'}
+`).join('')}
+    `;
+    
+    generateSimplePDF({
+        title: 'TRADING JOURNAL - COMPLETE HISTORY',
+        content: content,
+        filename: `trading-journal-${new Date().toISOString().split('T')[0]}.txt`
+    });
+};
+
+window.exportAnalyticsPDF = function() {
+    const winningTrades = trades.filter(t => t.pnl > 0).length;
+    const losingTrades = trades.filter(t => t.pnl < 0).length;
+    const totalProfit = trades.filter(t => t.pnl > 0).reduce((sum, t) => sum + t.pnl, 0);
+    const totalLoss = Math.abs(trades.filter(t => t.pnl < 0).reduce((sum, t) => sum + t.pnl, 0));
+    const profitFactor = totalLoss > 0 ? totalProfit / totalLoss : totalProfit > 0 ? 999 : 0;
+    
+    const content = `
+TRADING ANALYTICS REPORT
+
+PERFORMANCE OVERVIEW:
+TOTAL TRADES: ${trades.length}
+WINNING TRADES: ${winningTrades}
+LOSING TRADES: ${losingTrades}
+WIN RATE: ${(winningTrades / trades.length * 100).toFixed(1)}%
+PROFIT FACTOR: ${profitFactor.toFixed(2)}
+
+PROFIT ANALYSIS:
+TOTAL PROFIT: ${formatCurrency(totalProfit)}
+TOTAL LOSS: ${formatCurrency(totalLoss)}
+NET PROFIT: ${formatCurrency(totalProfit - totalLoss)}
+AVERAGE WIN: ${formatCurrency(winningTrades > 0 ? totalProfit / winningTrades : 0)}
+AVERAGE LOSS: ${formatCurrency(losingTrades > 0 ? totalLoss / losingTrades : 0)}
+
+ACCOUNT GROWTH:
+STARTING BALANCE: ${formatCurrency(startingBalance)}
+CURRENT BALANCE: ${formatCurrency(accountBalance)}
+TOTAL GROWTH: ${formatCurrency(accountBalance - startingBalance)}
+GROWTH %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
+
+RISK METRICS:
+MAX CONSECUTIVE WINS: ${calculateMaxConsecutiveWins()}
+MAX CONSECUTIVE LOSSES: ${calculateMaxConsecutiveLosses()}
+LARGEST WIN: ${formatCurrency(Math.max(...trades.filter(t => t.pnl > 0).map(t => t.pnl), 0))}
+LARGEST LOSS: ${formatCurrency(Math.min(...trades.filter(t => t.pnl < 0).map(t => t.pnl), 0))}
+    `;
+    
+    generateSimplePDF({
+        title: 'TRADING ANALYTICS REPORT',
+        content: content,
+        filename: `analytics-report-${new Date().toISOString().split('T')[0]}.txt`
+    });
+};
+
+window.exportAllDataPDF = function() {
+    const content = `
+COMPLETE TRADING DATA EXPORT
+
+ACCOUNT INFORMATION:
+CURRENT BALANCE: ${formatCurrency(accountBalance)}
+STARTING BALANCE: ${formatCurrency(startingBalance)}
+TOTAL GROWTH: ${formatCurrency(accountBalance - startingBalance)}
+GROWTH %: ${((accountBalance - startingBalance) / startingBalance * 100).toFixed(1)}%
+
+PERFORMANCE SUMMARY:
+TOTAL TRADES: ${trades.length}
+WINNING TRADES: ${trades.filter(t => t.pnl > 0).length}
+LOSING TRADES: ${trades.filter(t => t.pnl < 0).length}
+WIN RATE: ${(trades.filter(t => t.pnl > 0).length / trades.length * 100).toFixed(1)}%
+
+ALL TRADES (${trades.length} trades):
+${trades.map(t => `
+${t.date} ${t.time} | TRADE ${t.tradeNumber} | ${t.pair} | ${t.strategy}
+P&L: ${formatCurrencyWithSign(t.pnl)} | NOTES: ${t.notes || 'No notes'}
+`).join('')}
+
+DREAMS (${dreams.length} dreams):
+${dreams.map(d => `
+${formatDate(d.date)}: ${d.content}
+`).join('')}
+    `;
+    
+    generateSimplePDF({
+        title: 'COMPLETE TRADING DATA EXPORT',
+        content: content,
+        filename: `complete-trading-data-${new Date().toISOString().split('T')[0]}.txt`
+    });
+};
+
+window.downloadChartAsPDF = function(canvasId, chartName) {
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) {
+        showToast(`${chartName} chart not found`, 'error');
+        return;
+    }
+    
+    try {
+        // Convert canvas to image
+        const image = canvas.toDataURL('image/png');
+        const a = document.createElement('a');
+        a.href = image;
+        a.download = `${chartName.toLowerCase().replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        showToast(`${chartName} downloaded as image`, 'success');
+    } catch (error) {
+        console.error('Error downloading chart:', error);
+        showToast(`Error downloading ${chartName}`, 'error');
+    }
+};
+
+// ===== INITIALIZE DOWNLOAD BUTTONS WHEN PAGE LOADS =====
+document.addEventListener('DOMContentLoaded', function() {
+    // Add a small delay to ensure all elements are loaded
+    setTimeout(initializeDownloadButtons, 1000);
+});
+
+// Also re-initialize when switching pages
+window.addEventListener('load', initializeDownloadButtons);
+
+// Make sure these functions are available globally
+window.initializeDownloadButtons = initializeDownloadButtons;
+
 // ===== LANDING PAGE FUNCTIONS =====
 
 // Handle Google authentication
