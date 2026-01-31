@@ -5,8 +5,8 @@ let equityChart = null;
 let winRateChart = null;
 let winLossChart = null;
 let profitFactorChart = null;
-let accountBalance = 10000;
-let startingBalance = 10000;
+let accountBalance = 0;
+let startingBalance = 0;
 let currentCalendarMonth = new Date().getMonth();
 let currentCalendarYear = new Date().getFullYear();
 
