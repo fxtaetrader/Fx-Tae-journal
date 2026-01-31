@@ -282,8 +282,8 @@ function loadAccountBalance() {
     } catch (error) {
         console.error('Error loading account balance:', error);
         // Use defaults
-        accountBalance = 10000;
-        startingBalance = 10000;
+        accountBalance = 0;
+        startingBalance = 0;
     }
 }
 
@@ -2022,11 +2022,6 @@ function exportAnalyticsPDF() {
         filename: `analytics-report-${new Date().toISOString().split('T')[0]}.pdf`
     });
 }
-
-// Export notebook as PDF
-function exportNotebookPDF() {
-    const content = `
-        **TRADING DREAMS NOTEBOOK**
         
         **DREAM STATISTICS:**
         Total Dreams: ${dreams.length}
@@ -2045,11 +2040,6 @@ function exportNotebookPDF() {
         Review these regularly to stay aligned with your goals.
         Use these dreams as motivation during challenging times.
     `;
-    
-    generatePDF({
-        title: 'Trading Dreams Notebook',
-        content: content,
-        filename: `dreams-notebook-${new Date().toISOString().split('T')[0]}.pdf`
     });
 }
 
