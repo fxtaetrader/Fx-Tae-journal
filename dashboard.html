@@ -509,7 +509,7 @@
                         </div>
                         <h3>YouTube Channel</h3>
                         <p>Subscribe to our YouTube channel for educational content, live trading sessions, and market insights.</p>
-                        <a href="https://youtube.com/fxtaetrader" class="community-btn" target="_blank">
+                        <a href="https://www.youtube.com/@fxtaetrader" class="community-btn" target="_blank">
                             <i class="fab fa-youtube"></i> Subscribe
                         </a>
                     </div>
@@ -581,7 +581,7 @@
                                     <span>Low spreads, fast execution</span>
                                 </div>
                             </a>
-                            <a href="https://www.xm.com" target="_blank" class="resource-link">
+                            <a href="https://www.xmglobal.com/referral?token=UwkIjT3bocE_ES4g8nXlsA"_blank" class="resource-link">
                                 <i class="fas fa-external-link-alt"></i>
                                 <div>
                                     <strong>XM Broker</strong>
@@ -857,7 +857,7 @@
                                 <i class="fab fa-instagram"></i> @fxtaetrader
                             </a>
                             
-                            <a href="https://www.youtube.com/fxtaetrader" class="social-link" target="_blank">
+                            <a href="https://www.youtube.com/@fxtaetrader" class="social-link" target="_blank">
                                 <i class="fab fa-youtube"></i> @fxtaetrader
                             </a>
                             
@@ -929,8 +929,8 @@
         let winRateChart = null;
         let winLossChart = null;
         let profitFactorChart = null;
-        let accountBalance = 10000;
-        let startingBalance = 10000;
+        let accountBalance = 0;
+        let startingBalance = 0;
         let currentCalendarMonth = new Date().getMonth();
         let currentCalendarYear = new Date().getFullYear();
 
@@ -2635,15 +2635,6 @@
                 showToast('All data cleared successfully!', 'success');
             }
         }
-
-        // Export dashboard
-        document.getElementById('exportDashboard').addEventListener('click', function() {
-            generatePDF({
-                title: 'Professional Trading Dashboard Report',
-                content: generateDashboardReportHTML(),
-                filename: `dashboard-report-${new Date().toISOString().split('T')[0]}.pdf`
-            });
-        });
 
         // Initialize theme
         const savedTheme = localStorage.getItem('fxTaeTheme') || 'light';
